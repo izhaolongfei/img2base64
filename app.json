@@ -1,0 +1,13 @@
+{
+    "pages": [
+        "pages/home/index"
+    ],
+    "window": {
+        "navigationBarBackgroundColor": "#fff",
+        "navigationBarTextStyle": "black",
+        "navigationBarTitleText": "Img to base64",
+        "backgroundColor": "#eeeeee",
+        "backgroundTextStyle": "light"
+    },
+    "debug": false
+}
