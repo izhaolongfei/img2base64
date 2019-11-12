@@ -1,0 +1,10 @@
+<view class="index-container {{isIphoneX ? 'x-container' : ''}}">
+    <button class="index-take" plain bindtap="go2upload">上传图片</button>
+
+    <canvas canvas-id="squareCanvas" id="squareCanvas" class="index-canvas"></canvas>
+
+    <view>base64img | image url</view>
+    <image class="base64-img" src="{{base64Img}}" mode="widthFix"></image>
+
+    <image class="local-img" src="{{localImg}}" mode="widthFix"></image>
+</view>
