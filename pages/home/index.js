@@ -39,7 +39,7 @@ Page({
             mask: true
         });
 
-        this.q = new Img2Base64({canvasId: 'squareCanvas', imgUrl: imgUrl})
+        this.q = new Img2Base64({canvasId: 'squareCanvas', imgUrl: imgUrl, immediate: true})
             .on('DrawFinish', target => {
                 swan.showToast({
                     title: '图片绘制结束'
