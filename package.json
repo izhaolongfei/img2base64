@@ -1,0 +1,26 @@
+{
+  "name": "mp-img2base64",
+  "version": "1.0.1",
+  "description": "transform image to base64 in mini program",
+  "main": "index.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/izhaolongfei/mp-img2base64.git"
+  },
+  "keywords": [
+    "miniprogram",
+    "img2base64"
+  ],
+  "author": "izhaolongfei@gmail.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/izhaolongfei/mp-img2base64/issues"
+  },
+  "homepage": "https://github.com/izhaolongfei/mp-img2base64#readme"
+}
