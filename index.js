@@ -4,7 +4,6 @@
 
 /* eslint-disable */
 const actionTypes = ['ImageChanged', 'DrawFinish', 'DecodeComplete'];
-const app = getApp();
 
 export default class Img2Base64 {
     /**
@@ -17,6 +16,11 @@ export default class Img2Base64 {
      * @immediate 是否在画布绘制完后立刻导出图片base64
      */
     constructor(options = {}) {
+        if (swan) {
+            this.api = swan;
+        } else if (wx) {
+            this.api = wx;
+        }
         const { canvasId, canvasSize, imgUrl = '', device = {}, immediate = false} = options;
         this.canvasId = canvasId;
         this.canvasSize = canvasSize;
@@ -24,9 +28,13 @@ export default class Img2Base64 {
         this.device = device;
         this.immediate = immediate;
 
-        this.canvas = swan.createCanvasContext(canvasId);
+        this.canvas = this.api.createCanvasContext(canvasId);
 
         this.imgUrl && this.setImage(this.imgUrl);
+
+        if (swan && this._versionCompare(device.SDKVersion, '3.130.1') >= 0) {
+            this.fs = this.api.getFileSystemManager();
+        }
     }
 
     setImage(imgFilePath) {
@@ -68,27 +76,46 @@ export default class Img2Base64 {
         return this;
     }
 
+    _versionCompare(v1, v2) {
+        if (v1 === v2) {
+            return 0;
+        }
+
+        const v1v = v1.split('.');
+        const v2v = v2.split('.');
+        let flag = true;
+
+        for (let i = 0; i < v1v.length; i++) {
+            flag = flag && +v1v[i] >= +v2v[i];
+        }
+
+        return flag === true ? 1 : -1;
+    }
+
     _getImgSize(img) {
         return new Promise(resolve => {
             if (img.width && img.height) {
                 resolve(img);
             } else {
-                swan.getImageInfo({
+                this.api.getImageInfo({
                     src: img.path,
                     success: res => {
                         img.width = res.width;
                         img.height = res.height;
                         img.orientation = res.orientation;
-                        if (this.device.platform === 'ios' && res.orientation === 'right') {
-                            // 接口有问题，做兼容
-                            img.width = res.height;
-                            img.height = res.width;
-                            img.orientation = 'left';
-                        }
-                        if (this.device.model === 'SM-N950F' && res.orientation === 'left') {
-                            // 三星
-                            img.width = res.height;
-                            img.height = res.width;
+                        // swan兼容
+                        if (swan) {
+                            if (this.device.platform === 'ios' && res.orientation === 'right') {
+                                // 接口有问题，做兼容
+                                img.width = res.height;
+                                img.height = res.width;
+                                img.orientation = 'left';
+                            }
+                            if (this.device.model === 'SM-N950F' && res.orientation === 'left') {
+                                // 三星
+                                img.width = res.height;
+                                img.height = res.width;
+                            }
                         }
                         img.ratio = img.height / img.width;
                         resolve(img);
@@ -107,7 +134,7 @@ export default class Img2Base64 {
                 this.canvasSize.ratio = this.canvasSize.height / this.canvasSize.width,
                 resolve();
             } else {
-                swan.createSelectorQuery().select('#' + this.canvasId).boundingClientRect((res) => {
+                this.api.createSelectorQuery().select('#' + this.canvasId).boundingClientRect((res) => {
                     this.canvasSize = {
                         ratio: res.height / res.width,
                         width: res.width,
@@ -120,7 +147,6 @@ export default class Img2Base64 {
     }
 
     _calcTarget() {
-        // app.showModal(JSON.stringify(this.img));
         const dir2degree = {
             'up': 0,
             'left': 90,
@@ -214,7 +240,7 @@ export default class Img2Base64 {
     _decodeTarget(rect) {
         this._getTargetImgData(rect)
             .then((res) => {
-                return this._toPNGBase64(res.buffer, res.width, res.height, res.data);
+                return this._toBase64(res);
             })
             .then((base64) => {
                 this.onDecodeComplete && this.onDecodeComplete({
@@ -239,6 +265,7 @@ export default class Img2Base64 {
                 width: this.target._width,
                 height: this.target._height
             };
+
             if (rect) {
                 if (rect.left < 0) {
                     rect.left = 0;
@@ -259,36 +286,55 @@ export default class Img2Base64 {
                     target.height = this.target._height - target.top;
                 }
             }
-            // app.showModal(JSON.stringify(this.target) + '///' + JSON.stringify(rect) + '///' + JSON.stringify(target));
 
-            swan.canvasGetImageData({
-                canvasId: this.canvasId,
+            const excoords = {
                 x: Math.abs(target.left),
                 y: Math.abs(target.top),
                 width: Math.abs(target.width),
-                height: Math.abs(target.height),
-                success(res) {
-                    // if (this.platform === 'ios') {
-                    //   // 兼容处理：ios获取的图片上下颠倒
-                    //   res = this._reverseImgData(res);
-                    // }
-                    resolve({
-                        data: res.data,
-                        buffer: res.data.buffer,
-                        width: res.width,
-                        height: res.height
-                    })
-                },
-                fail(e) {
-                    reject({
-                        code: 1,
-                        msg: '读取图片数据失败'
-                    });
-                }
-            })
+                height: Math.abs(target.height)
+            };
+
+            if (this.fs) {
+                this.api.canvasToTempFilePath({
+                    canvasId: this.canvasId,
+                    ...excoords,
+                    fileType: 'jpg',
+                    quality: 0.8,
+                    success: res => {
+                        resolve({
+                            type: 'image',
+                            data: res.tempFilePath
+                        })
+                    },
+                    fail: err => {
+                        reject({
+                            code: 1,
+                            msg: err
+                        });
+                    }
+                })
+            } else {
+                this.api.canvasGetImageData({
+                    canvasId: this.canvasId,
+                    ...excoords,
+                    success(res) {
+                        resolve({
+                            type: 'buffer',
+                            data: res
+                        })
+                    },
+                    fail(err) {
+                        reject({
+                            code: 1,
+                            msg: err
+                        });
+                    }
+                });             
+            }
         });
     }
 
+    // 上下颠倒
     _reverseImgData(res) {
         let w = res.width;
         let h = res.height;
@@ -303,20 +349,35 @@ export default class Img2Base64 {
         return res;
     }
 
-    _toPNGBase64(buffer, width, height, data) {
+    _toBase64(source) {
         return new Promise((resolve, reject) => {
             try {
-                const base64 = btoa(data.reduce(function (str, byte) {
-                    return str + String.fromCharCode(byte);
-                }, ''));
+                if (source.type === 'buffer') {
+                    const base64 = btoa(source.data.reduce(function (str, byte) {
+                        return str + String.fromCharCode(byte);
+                    }, ''));
 
-                resolve(base64);
+                    resolve(base64);
+                } else if (source.type === 'image') {
+                    this.fs.readFile({
+                        filePath: source.data,
+                        encoding: 'base64',
+                        success: res => {
+                            resolve(res.data);
+                        },
+                        fail: err => {
+                            reject({
+                                code: 2,
+                                msg: err
+                            })
+                        }
+                    });
+                }
             } catch (e) {
                 reject({
                     code: 2,
-                    msg: '图片转base64失败',
-                    e: e
-                })
+                    msg: e
+                });
             }
         });
     }

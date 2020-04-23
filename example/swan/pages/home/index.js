@@ -1,5 +1,5 @@
 /* eslint-disable */
-import Img2Base64 from '../../utils/img2base64.js';
+import Img2Base64 from '../../utils/img2base64.js.js';
 
 const app = getApp();
 
